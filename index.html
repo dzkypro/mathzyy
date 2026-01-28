@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Math Visualizer</title>
+
+<style>
+:root{
+  --bg:#0b0f1a;
+  --card:#11162a;
+  --neon:#00e5ff;
+  --text:#e0f7ff;
+  --border:rgba(0,229,255,.3);
+}
+
+[data-theme="light"]{
+  --bg:#eef6ff;
+  --card:#ffffff;
+  --neon:#2979ff;
+  --text:#0a1a2f;
+  --border:#2979ff44;
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  font-family:system-ui,Arial,sans-serif;
+  background:radial-gradient(circle at top,var(--bg),#000);
+  color:var(--text);
+}
+
+.container{
+  max-width:800px;
+  margin:auto;
+  padding:1rem;
+}
+
+h1,h2{
+  text-align:center;
+  color:var(--neon);
+}
+
+.card{
+  background:linear-gradient(145deg,var(--card),#0a0f22);
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:1rem;
+  margin-bottom:1.2rem;
+}
+
+label,select,input{
+  width:100%;
+  margin:.4rem 0;
+}
+
+input,select{
+  padding:.6rem;
+  background:#050816;
+  color:var(--text);
+  border:1px solid var(--border);
+  border-radius:6px;
+}
+
+button{
+  width:100%;
+  padding:.6rem;
+  margin-top:.6rem;
+  background:var(--neon);
+  color:#000;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:600;
+}
+
+canvas{
+  width:100%;
+  max-width:320px;
+  aspect-ratio:1/1;
+  display:block;
+  margin:1rem auto;
+  background:#02030a;
+  border:1px solid var(--border);
+}
+
+.footer{
+  text-align:center;
+  font-size:.75rem;
+  opacity:.7;
+}
+</style>
+</head>
+
+<body data-theme="dark">
+<div class="container">
+
+<h1>Visualisasi Sudut & Trigonometri</h1>
+
+<div class="card">
+<label>Tema</label>
+<select id="theme">
+<option value="dark">Dark</option>
+<option value="light">Light</option>
+</select>
+
+<label>Sudut (°)</label>
+<input type="number" id="angle" placeholder="30">
+
+<canvas id="canvas" width="300" height="300"></canvas>
+
+<p id="sinVal"></p>
+<p id="cosVal"></p>
+<p id="tanVal"></p>
+</div>
+
+<div class="card">
+<h2>Kalkulasi Jarak</h2>
+
+<input id="tinggiGunung" placeholder="Tinggi (m)">
+<input id="sudutElevasi" placeholder="Sudut (°)">
+<input id="jarakGunung" placeholder="Jarak (m)">
+
+<button onclick="hitungJarak()">Hitung</button>
+<p id="hasilJarak"></p>
+</div>
+
+<div class="footer">Made by Dzkyy ⚡ Math Visualization</div>
+
+</div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+// Nilai sudut istimewa (MthIO style)
+const special = {
+  0:["0","1","0"],
+  30:["1/2","√3/2","√3/3"],
+  45:["√2/2","√2/2","1"],
+  60:["√3/2","1/2","√3"],
+  90:["1","0","∞"]
+};
+
+function drawGrid(){
+  ctx.strokeStyle="#233";
+  for(let i=0;i<=300;i+=30){
+    ctx.beginPath();
+    ctx.moveTo(i,0);ctx.lineTo(i,300);
+    ctx.moveTo(0,i);ctx.lineTo(300,i);
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle="#666";
+  ctx.beginPath();
+  ctx.moveTo(150,0);ctx.lineTo(150,300);
+  ctx.moveTo(0,150);ctx.lineTo(300,150);
+  ctx.stroke();
+}
+
+function drawAngle(theta){
+  ctx.clearRect(0,0,300,300);
+  drawGrid();
+
+  const rad = theta*Math.PI/180;
+  const cx=150,cy=150,r=100;
+
+  ctx.strokeStyle="#00e5ff";
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(cx,cy);
+  ctx.lineTo(cx+r*Math.cos(rad),cy-r*Math.sin(rad));
+  ctx.stroke();
+
+  const deg=((theta%360)+360)%360;
+
+  if(special[deg]){
+    sinVal.textContent="sin(θ) = "+special[deg][0];
+    cosVal.textContent="cos(θ) = "+special[deg][1];
+    tanVal.textContent="tan(θ) = "+special[deg][2];
+  }else{
+    sinVal.textContent="sin(θ) = "+Math.sin(rad).toFixed(3);
+    cosVal.textContent="cos(θ) = "+Math.cos(rad).toFixed(3);
+    tanVal.textContent="tan(θ) = "+Math.tan(rad).toFixed(3);
+  }
+}
+
+angle.addEventListener("input",()=>{
+  drawAngle(+angle.value);
+});
+
+theme.onchange=e=>{
+  document.body.dataset.theme=e.target.value;
+};
+
+function hitungJarak(){
+  const h=+tinggiGunung.value;
+  const a=+sudutElevasi.value*Math.PI/180;
+  const j=+jarakGunung.value;
+
+  if(h && a && !j)
+    hasilJarak.textContent=(h/Math.tan(a)).toFixed(2)+" m";
+  else if(j && a && !h)
+    hasilJarak.textContent=(Math.tan(a)*j).toFixed(2)+" m";
+  else
+    hasilJarak.textContent="Isi tepat 2 kolom";
+}
+
+drawAngle(0);
+</script>
+</body>
+</html>
