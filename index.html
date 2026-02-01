@@ -106,7 +106,7 @@ canvas{
 </select>
 
 <label>Sudut (°)</label>
-<input type="number" id="angle" placeholder="30">
+<input type="number" id="angle" value="0">
 
 <canvas id="canvas" width="300" height="300"></canvas>
 
@@ -126,15 +126,35 @@ canvas{
 <p id="hasilJarak"></p>
 </div>
 
+<div class="card">
+<h2>🎓 Mode Ujian Trigonometri</h2>
+
+<p id="ujianSoal"></p>
+<input id="ujianJawaban" placeholder="Jawaban (√3/2 atau 0.707)">
+
+<button onclick="jawabUjian()">Submit</button>
+<button onclick="mulaiUjian()">Mulai Ujian</button>
+
+<p id="ujianInfo"></p>
+<div id="ujianHasil"></div>
+</div>
+
 <div class="footer">Made by Dzkyy ⚡ Math Visualization</div>
 
 </div>
 
 <script>
+/* =======================
+   KARTESIUS & VISUAL
+======================= */
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-// Nilai sudut istimewa (MthIO style)
+const sinVal = document.getElementById("sinVal");
+const cosVal = document.getElementById("cosVal");
+const tanVal = document.getElementById("tanVal");
+const angle = document.getElementById("angle");
+
 const special = {
   0:["0","1","0"],
   30:["1/2","√3/2","√3/3"],
@@ -143,19 +163,48 @@ const special = {
   90:["1","0","∞"]
 };
 
+// 🔹 fungsi nilai eksak lintas kuadran
+function nilaiEksak(theta){
+  const deg = ((theta % 360) + 360) % 360;
+
+  let ref;
+  if(deg <= 90) ref = deg;
+  else if(deg <= 180) ref = 180 - deg;
+  else if(deg <= 270) ref = deg - 180;
+  else ref = 360 - deg;
+
+  if(!special[ref]) return null;
+
+  let [s, c, t] = special[ref];
+
+  const sinNeg = deg > 180;
+  const cosNeg = deg > 90 && deg < 270;
+
+  if(s !== "0" && s !== "1" && sinNeg) s = "-" + s;
+  if(c !== "0" && c !== "1" && cosNeg) c = "-" + c;
+
+  if(t !== "0" && t !== "∞"){
+    if((sinNeg && !cosNeg) || (!sinNeg && cosNeg)){
+      t = "-" + t;
+    }
+  }
+
+  return { sin:s, cos:c, tan:t };
+}
+
 function drawGrid(){
   ctx.strokeStyle="#233";
   for(let i=0;i<=300;i+=30){
     ctx.beginPath();
-    ctx.moveTo(i,0);ctx.lineTo(i,300);
-    ctx.moveTo(0,i);ctx.lineTo(300,i);
+    ctx.moveTo(i,0); ctx.lineTo(i,300);
+    ctx.moveTo(0,i); ctx.lineTo(300,i);
     ctx.stroke();
   }
 
-  ctx.strokeStyle="#666";
+  ctx.strokeStyle="#777";
   ctx.beginPath();
-  ctx.moveTo(150,0);ctx.lineTo(150,300);
-  ctx.moveTo(0,150);ctx.lineTo(300,150);
+  ctx.moveTo(150,0); ctx.lineTo(150,300);
+  ctx.moveTo(0,150); ctx.lineTo(300,150);
   ctx.stroke();
 }
 
@@ -163,51 +212,265 @@ function drawAngle(theta){
   ctx.clearRect(0,0,300,300);
   drawGrid();
 
-  const rad = theta*Math.PI/180;
-  const cx=150,cy=150,r=100;
+  const rad = theta * Math.PI / 180;
+  const cx=150, cy=150, r=100;
 
   ctx.strokeStyle="#00e5ff";
   ctx.lineWidth=2;
   ctx.beginPath();
   ctx.moveTo(cx,cy);
-  ctx.lineTo(cx+r*Math.cos(rad),cy-r*Math.sin(rad));
+  ctx.lineTo(cx + r*Math.cos(rad), cy - r*Math.sin(rad));
   ctx.stroke();
 
-  const deg=((theta%360)+360)%360;
+  const eksak = nilaiEksak(theta);
 
-  if(special[deg]){
-    sinVal.textContent="sin(θ) = "+special[deg][0];
-    cosVal.textContent="cos(θ) = "+special[deg][1];
-    tanVal.textContent="tan(θ) = "+special[deg][2];
+  if(eksak){
+    sinVal.textContent = `sin(θ) = ${eksak.sin}`;
+    cosVal.textContent = `cos(θ) = ${eksak.cos}`;
+    tanVal.textContent = `tan(θ) = ${eksak.tan}`;
   }else{
-    sinVal.textContent="sin(θ) = "+Math.sin(rad).toFixed(3);
-    cosVal.textContent="cos(θ) = "+Math.cos(rad).toFixed(3);
-    tanVal.textContent="tan(θ) = "+Math.tan(rad).toFixed(3);
+    sinVal.textContent = `sin(θ) = ${Math.sin(rad).toFixed(3)}`;
+    cosVal.textContent = `cos(θ) = ${Math.cos(rad).toFixed(3)}`;
+    tanVal.textContent = `tan(θ) = ${Math.tan(rad).toFixed(3)}`;
   }
 }
 
-angle.addEventListener("input",()=>{
-  drawAngle(+angle.value);
-});
+angle.addEventListener("input",()=>drawAngle(+angle.value));
+drawAngle(0);
 
-theme.onchange=e=>{
-  document.body.dataset.theme=e.target.value;
+
+/* ======================
+   KONFIGURASI UJIAN
+====================== */
+const sudutIstimewa = [0,30,45,60,90,120,135,150,180,210,225,240,270,300,315,330];
+const fungsi = ["sin","cos","tan"];
+const toleransi = 0.01;
+
+let sesi = {
+  nomor: 0,
+  total: 20,
+  benar: 0,
+  soal: null,
+  hasil: []
 };
 
-function hitungJarak(){
-  const h=+tinggiGunung.value;
-  const a=+sudutElevasi.value*Math.PI/180;
-  const j=+jarakGunung.value;
+const acak = arr => arr[Math.floor(Math.random()*arr.length)];
 
-  if(h && a && !j)
-    hasilJarak.textContent=(h/Math.tan(a)).toFixed(2)+" m";
-  else if(j && a && !h)
-    hasilJarak.textContent=(Math.tan(a)*j).toFixed(2)+" m";
-  else
-    hasilJarak.textContent="Isi tepat 2 kolom";
+/* ======================
+   HITUNG NILAI
+====================== */
+function nilai(f,d){
+  const r = d * Math.PI / 180;
+  if(f==="sin") return Math.sin(r);
+  if(f==="cos") return Math.cos(r);
+  if(f==="tan") return Math.tan(r);
 }
 
-drawAngle(0);
+/* ======================
+   NORMALISASI JAWABAN (SUPER AKURAT)
+====================== */
+function normalisasiUjian(input){
+  if(!input) return NaN;
+
+  let j = input
+    .toLowerCase()
+
+    // bersihkan spasi & minus aneh
+    .replace(/\s+/g,"")
+    .replace(/–|−/g,"-")
+
+    // ubah √(...)
+    .replace(/√\s*\(([^)]+)\)/g,"Math.sqrt($1)")
+
+    // ubah √angka
+    .replace(/√(\d+(\.\d+)?)/g,"Math.sqrt($1)")
+
+    // pangkat
+    .replace(/²/g,"**2")
+
+    // bentuk 1/2√3 → (1/2)*√3
+    .replace(/(\d+)\/(\d+)(Math\.sqrt\([^)]+\))/g,"($1/$2)*$3")
+
+    // bentuk √3/2 → (Math.sqrt(3))/2
+    .replace(/(Math\.sqrt\([^)]+\))\/(\d+)/g,"($1)/$2")
+
+    // bentuk 2√3 → 2*Math.sqrt(3)
+    .replace(/(\d+)(Math\.sqrt)/g,"$1*$2")
+
+    // implicit multiplication
+    .replace(/(\))(\()/g,"$1*$2")
+    .replace(/(\d)(\()/g,"$1*$2")
+    .replace(/(\))(\d)/g,"$1*$2")
+
+    // bentuk 1/4(√6+√2)
+    .replace(/(\d+)\/(\d+)\(/g,"($1/$2)*(")
+
+    // safety
+    .replace(/\/(\d+)$/g,"/($1)");
+
+  try{
+    const val = Function(`"use strict"; return (${j})`)();
+    return (typeof val === "number" && isFinite(val)) ? val : NaN;
+  }catch{
+    return NaN;
+  }
+}
+
+function buatTerm(){
+  let f, d;
+
+  do{
+    f = acak(["sin","cos","tan"]);
+    d = acak(sudutIstimewa);
+  }while(f==="tan" && d%180===90);
+
+  // mode term (tidak boleh koef + kuadrat barengan)
+  const mode = Math.random();
+
+  let koef = 1;
+  let kuadrat = false;
+
+  if(mode < 0.33){
+    koef = acak([2,3]);           // MODE KOEFISIEN
+  }else if(mode < 0.66){
+    kuadrat = true;               // MODE KUADRAT
+  }
+  // sisanya MODE NORMAL
+
+  // NOTASI TEKS
+  let teks = "";
+
+  if(koef !== 1) teks += koef;
+  teks += kuadrat ? `${f}² ${d}°` : `${f} ${d}°`;
+
+  //  NILAI NUMERIK
+  let nilaiTerm = nilai(f,d);
+  if(kuadrat) nilaiTerm = nilaiTerm ** 2;
+  nilaiTerm *= koef;
+
+  return { teks, nilai: nilaiTerm };
+}
+
+
+
+/* ======================
+   SOAL DASAR
+====================== */
+function soalDasar(){
+  let f, d;
+  do{
+    f = acak(fungsi);
+    d = acak(sudutIstimewa);
+  }while(f==="tan" && d%180===90);
+
+  return {
+    teks:`${f} ${d}°`,
+    jawaban:nilai(f,d)
+  };
+}
+
+/* ======================
+   SOAL EKSTREM
+====================== */
+function soalEkstrem(){
+  const t1 = buatTerm();
+  const t2 = buatTerm();
+  const op = acak([" + "," - "," · "]);
+
+  let teks = `${t1.teks}${op}${t2.teks}`;
+  let jawaban =
+    op===" + "? t1.nilai+t2.nilai :
+    op===" - "? t1.nilai-t2.nilai :
+    t1.nilai*t2.nilai;
+
+  if(Math.random()<0.3){
+    const t3 = buatTerm();
+    const op2 = acak([" + "," - "]);
+    teks += `${op2}${t3.teks}`;
+    jawaban += op2===" + " ? t3.nilai : -t3.nilai;
+  }
+
+  return { teks, jawaban };
+}
+
+/* ======================
+   ALUR UJIAN
+====================== */
+function mulaiUjian(){
+  sesi = { nomor:0, total:20, benar:0, soal:null, hasil:[] };
+  ujianHasil.innerHTML="";
+  nextSoal();
+}
+
+function nextSoal(){
+  if(sesi.nomor>=sesi.total){
+    selesaiUjian();
+    return;
+  }
+
+  sesi.soal = Math.random()<0.5 ? soalDasar() : soalEkstrem();
+  sesi.nomor++;
+
+  ujianSoal.textContent =
+    `Soal ${sesi.nomor}/${sesi.total}: ${sesi.soal.teks}`;
+
+  ujianInfo.textContent="";
+  ujianJawaban.value="";
+}
+
+/* ======================
+   JAWAB & KOREKSI
+====================== */
+
+function jawabUjian(){
+  if(!sesi.soal) return;
+
+  const user = normalisasiUjian(ujianJawaban.value);
+  const benar = sesi.soal.jawaban;
+
+  let status =
+    !isNaN(user) &&
+    Math.abs(user - benar) <= toleransi;
+
+  if(status) sesi.benar++;
+
+  sesi.hasil.push({
+    soal: sesi.soal.teks,
+    status
+  });
+
+  ujianInfo.textContent = status ? "✅ Benar" : "❌ Salah";
+  ujianInfo.style.color = status ? "lime" : "red";
+
+  setTimeout(nextSoal, 700);
+}
+
+
+/* ======================
+   SELESAI UJIAN
+====================== */
+function selesaiUjian(){
+  const nilaiAkhir = Math.round((sesi.benar/sesi.total)*100);
+
+  let level =
+    nilaiAkhir>=90 ? "🏆 MASTER" :
+    nilaiAkhir>=75 ? "🔥 ADVANCED" :
+    nilaiAkhir>=60 ? "🙂 INTERMEDIATE" :
+    "📘 BEGINNER";
+
+  ujianSoal.textContent="Ujian Selesai!";
+  ujianInfo.innerHTML=`
+    Skor: <b>${sesi.benar}/${sesi.total}</b><br>
+    Nilai: <b>${nilaiAkhir}</b><br>
+    Level: <b>${level}</b>
+  `;
+
+  ujianHasil.innerHTML="<hr><b>📋 Rekap Jawaban</b><br>";
+  sesi.hasil.forEach((h,i)=>{
+    ujianHasil.innerHTML+=`${i+1}. ${h.soal} → ${h.status?"✅":"❌"}<br>`;
+  });
+}
+  
 </script>
 </body>
 </html>
